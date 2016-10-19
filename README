@@ -1,3 +1,9 @@
+```
+$ mkdir /srv/
+$ cp skunk /srv/pki
+$ cd /srv/pki/
+$ sh skunk.sh
+```
 
 ```
 $ mongod --sslMode requireSSL --sslPEMKeyFile /srv/pki/server.pem --sslCAFile /srv/pki/intermediate/certs/ca-chain.cert.pem --auth
