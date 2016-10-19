@@ -24,8 +24,8 @@ default_crl_days  = 30
 
 default_md        = sha256
 
-name_opt          = ROOTCA
-cert_opt          = ROOTCA
+name_opt          = ca_default
+cert_opt          = ca_default
 default_days      = 375
 preserve          = no
 policy            = policy_strict
@@ -52,8 +52,8 @@ default_crl_days  = 30
 
 default_md        = sha256
 
-name_opt          = INTERMEDIATECA
-cert_opt          = INTERMEDIATECA
+name_opt          = ca_default
+cert_opt          = ca_default
 default_days      = 375
 preserve          = no
 policy            = policy_loose
