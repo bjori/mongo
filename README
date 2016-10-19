@@ -12,4 +12,28 @@ $ mongod --sslMode requireSSL --sslPEMKeyFile /srv/pki/server.pem --sslCAFile /s
 ```
 $ mongo --ssl --sslCAFile /srv/pki/intermediate/certs/ca-chain.cert.pem --sslPEMKeyFile /srv/pki/client.pem --host localhost
 > db.getSiblingDB("$external").auth({mechanism: "MONGODB-X509"})
+1
+> db.runCommand({connectionStatus: 1})
+{
+	"authInfo" : {
+		"authenticatedUsers" : [
+			{
+				"user" : "CN=Administrator,OU=SkunkWorks Client,O=MongoDB Inc,ST=Reykjavik,C=IS",
+				"db" : "$external"
+			}
+		],
+		"authenticatedUserRoles" : [
+			{
+				"role" : "readWriteAnyDatabase",
+				"db" : "admin"
+			},
+			{
+				"role" : "clusterAdmin",
+				"db" : "admin"
+			}
+		]
+	},
+	"ok" : 1
+}
+> 
 ```
