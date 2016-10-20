@@ -592,6 +592,101 @@ Status requireAuthSchemaVersion26UpgradeOrFinal(OperationContext* txn,
 }  // namespace
 
 
+class CmdCreateApplicationCertificate : public Command {
+public:
+    CmdCreateApplicationCertificate() : Command("createApplicationCertificate") {}
+
+    virtual bool slaveOk() const {
+        return false;
+    }
+
+    virtual bool supportsWriteConcern(const BSONObj& cmd) const override {
+        return false;
+    }
+
+    virtual void help(stringstream& ss) const {
+        ss << "Creates an application certificate with embedded roles" << endl;
+    }
+
+    virtual Status checkAuthForCommand(Client* client,
+                                       const std::string& dbname,
+                                       const BSONObj& cmdObj) {
+        return auth::checkAuthForCreateApplicationCertificateCommand(client, dbname, cmdObj);
+    }
+
+    bool run(OperationContext* txn,
+             const string& dbname,
+             BSONObj& cmdObj,
+             int options,
+             string& errmsg,
+             BSONObjBuilder& result) {
+#ifndef MONGO_CONFIG_SSL
+        return appendCommandStatus(result,
+                                   Status(ErrorCodes::ProtocolError,
+                                          "Cannot create a user certificate without SSL support."));
+#else
+        auth::CreateApplicationCertificateArgs args;
+        Status status = auth::parseCreateApplicationCertificateCommand(cmdObj, dbname, &args);
+        if (!status.isOK()) {
+            return appendCommandStatus(result, status);
+        }
+
+        if (dbname != "$external") {
+            return appendCommandStatus(
+                result, Status(ErrorCodes::BadValue,
+                               "Application certificates must be created in the $external database"));
+        }
+
+        if (getSSLManager()) {
+            // TODO: User should be the subject name from the certificate signing request, this should
+            // probably be handled later on.
+            if (getSSLManager()->getSSLConfiguration().isClusterMember("subjectName")) {
+                return appendCommandStatus(
+                        result,
+                        Status(ErrorCodes::BadValue,
+                               "Cannot create an x.509 user with a subjectname "
+                               "that would be recognized as an internal "
+                               "cluster member."));
+            }
+            if (!getSSLManager()->getSSLConfiguration().hasCA) {
+                return appendCommandStatus(
+                        result,
+                        Status(ErrorCodes::ProtocolError,
+                               "Cannot create user certificate, no CA has been provided."));
+            }
+        } else {
+            return appendCommandStatus(result,
+                                       Status(ErrorCodes::ProtocolError,
+                                              "Cannot create a user certificate without SSL support."));
+        }
+
+        ServiceContext* serviceContext = txn->getClient()->getServiceContext();
+        AuthorizationManager* authzManager = AuthorizationManager::get(serviceContext);
+
+        stdx::lock_guard<stdx::mutex> lk(getAuthzDataMutex(serviceContext));
+
+        // Role existence has to be checked after acquiring the update lock
+        for (size_t i = 0; i < args.roles.size(); ++i) {
+            BSONObj ignored;
+            status = authzManager->getRoleDescription(
+                txn, args.roles[i], PrivilegeFormat::kOmit, &ignored);
+            if (!status.isOK()) {
+                return appendCommandStatus(result, status);
+            }
+        }
+
+        audit::logCreateApplicationCertificate(Client::getCurrent(),
+                                               args.certificateSigningRequest,
+                                               args.roles);
+        // TODO:
+        // status = createApplicationCertificate(txn, args);
+        status = Status::OK();
+        return appendCommandStatus(result, status);
+#endif
+    }
+
+} cmdCreateApplicationCertificate;
+
 class CmdCreateUser : public Command {
 public:
     CmdCreateUser() : Command("createUser") {}

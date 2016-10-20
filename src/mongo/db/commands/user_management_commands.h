@@ -74,6 +74,10 @@ Status checkAuthorizedToRevokePrivileges(AuthorizationSession* authzSession,
 // checkAuthFor*Command methods
 //
 
+Status checkAuthForCreateApplicationCertificateCommand(Client* client,
+                                                       const std::string& dbname,
+                                                       const BSONObj& cmdObj);
+
 Status checkAuthForCreateUserCommand(Client* client,
                                      const std::string& dbname,
                                      const BSONObj& cmdObj);

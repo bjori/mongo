@@ -110,6 +110,25 @@ Status checkAuthorizedToRevokePrivileges(AuthorizationSession* authzSession,
     return Status::OK();
 }
 
+Status checkAuthForCreateApplicationCertificateCommand(Client* client,
+                                                       const std::string& dbname,
+                                                       const BSONObj& cmdObj) {
+    AuthorizationSession* authzSession = AuthorizationSession::get(client);
+    auth::CreateApplicationCertificateArgs args;
+    Status status = auth::parseCreateApplicationCertificateCommand(cmdObj, dbname, &args);
+    if (!status.isOK()) {
+        return status;
+    }
+
+    if (!authzSession->isAuthorizedForActionsOnResource(
+            ResourcePattern::forDatabaseName("$external"), ActionType::createUser)) {
+        return Status(ErrorCodes::Unauthorized,
+                      str::stream() << "Not authorized to create users on db: $external");
+    }
+
+    return checkAuthorizedToGrantRoles(authzSession, args.roles);
+}
+
 Status checkAuthForCreateUserCommand(Client* client,
                                      const std::string& dbname,
                                      const BSONObj& cmdObj) {

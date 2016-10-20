@@ -56,6 +56,20 @@ struct CreateOrUpdateUserArgs {
     CreateOrUpdateUserArgs() : hasHashedPassword(false), hasCustomData(false), hasRoles(false) {}
 };
 
+struct CreateApplicationCertificateArgs {
+    std::string certificateSigningRequest;
+    std::vector<RoleName> roles;
+};
+
+/**
+ * Takes a command object describing an invocation of the "createApplicationCertificate" command
+ * on the database "dbname", and parses out all the arguments into the "parsedArgs" output param.
+ * Also validates the input and returns a non-ok Status if there is anything wrong.
+ */
+Status parseCreateApplicationCertificateCommand(const BSONObj& cmdObj,
+                                                const std::string& dbname,
+                                                CreateApplicationCertificateArgs* parsedArgs);
+
 /**
  * Takes a command object describing an invocation of the "createUser" or "updateUser" commands
  * (which command it is is specified in "cmdName") on the database "dbname", and parses out all

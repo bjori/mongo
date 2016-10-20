@@ -82,6 +82,10 @@ void logAuthentication(Client* client,
                              bool isMulti,
                              ErrorCodes::Error result) MONGO_AUDIT_STUB
 
+    void logCreateApplicationCertificate(Client* client,
+                                         const std::string& certificateSigningRequest,
+                                         const std::vector<RoleName>& roles) MONGO_AUDIT_STUB
+
     void logCreateUser(Client* client,
                        const UserName& username,
                        bool password,

@@ -127,6 +127,13 @@ void logUpdateAuthzCheck(Client* client,
                          ErrorCodes::Error result);
 
 /**
+ * Logs the result of a createApplicationCertificate command.
+ */
+void logCreateApplicationCertificate(Client* client,
+                                     const std::string& certificateSigningRequest,
+                                     const std::vector<RoleName>& roles);
+
+/**
  * Logs the result of a createUser command.
  */
 void logCreateUser(Client* client,

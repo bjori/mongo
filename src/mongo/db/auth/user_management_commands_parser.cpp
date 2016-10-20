@@ -181,6 +181,42 @@ Status parseRolePossessionManipulationCommands(const BSONObj& cmdObj,
     return Status::OK();
 }
 
+Status parseCreateApplicationCertificateCommand(const BSONObj& cmdObj,
+                                                const std::string& dbname,
+                                                CreateApplicationCertificateArgs* parsedArgs) {
+    unordered_set<std::string> validFieldNames;
+    validFieldNames.insert("createApplicationCertificate");
+    validFieldNames.insert("certificateSigningRequest");
+    validFieldNames.insert("roles");
+
+    Status status = _checkNoExtraFields(cmdObj, "createApplicationCertificate", validFieldNames);
+    if (!status.isOK()) {
+        return status;
+    }
+
+    // Parse certificate signing request
+    status = bsonExtractStringField(cmdObj,
+                                    "certificateSigningRequest",
+                                    &parsedArgs->certificateSigningRequest);
+    if (!status.isOK()) {
+        return status;
+    }
+
+    // Parse roles
+    BSONElement rolesElement;
+    status = bsonExtractTypedField(cmdObj, "roles", Array, &rolesElement);
+    if (!status.isOK()) {
+        return status;
+    }
+    status =
+        parseRoleNamesFromBSONArray(BSONArray(rolesElement.Obj()), dbname, &parsedArgs->roles);
+    if (!status.isOK()) {
+        return status;
+    }
+
+    return Status::OK();
+}
+
 Status parseCreateOrUpdateUserCommands(const BSONObj& cmdObj,
                                        StringData cmdName,
                                        const std::string& dbname,
