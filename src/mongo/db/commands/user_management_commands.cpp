@@ -76,9 +76,9 @@
 #include "mongo/util/time_support.h"
 
 #include "mongo/util/net/ssl_options.h"
+#include <openssl/conf.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
-#include <openssl/conf.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
@@ -641,31 +641,33 @@ public:
 
         if (dbname != "$external") {
             return appendCommandStatus(
-                result, Status(ErrorCodes::BadValue,
-                               "Application certificates must be created in the $external database"));
+                result,
+                Status(ErrorCodes::BadValue,
+                       "Application certificates must be created in the $external database"));
         }
 
         if (getSSLManager()) {
-            // TODO: User should be the subject name from the certificate signing request, this should
+            // TODO: User should be the subject name from the certificate signing request, this
+            // should
             // probably be handled later on.
             if (getSSLManager()->getSSLConfiguration().isClusterMember("subjectName")) {
-                return appendCommandStatus(
-                        result,
-                        Status(ErrorCodes::BadValue,
-                               "Cannot create an x.509 user with a subjectname "
-                               "that would be recognized as an internal "
-                               "cluster member."));
+                return appendCommandStatus(result,
+                                           Status(ErrorCodes::BadValue,
+                                                  "Cannot create an x.509 user with a subjectname "
+                                                  "that would be recognized as an internal "
+                                                  "cluster member."));
             }
             if (!getSSLManager()->getSSLConfiguration().hasCA) {
                 return appendCommandStatus(
-                        result,
-                        Status(ErrorCodes::ProtocolError,
-                               "Cannot create user certificate, no CA has been provided."));
+                    result,
+                    Status(ErrorCodes::ProtocolError,
+                           "Cannot create user certificate, no CA has been provided."));
             }
         } else {
-            return appendCommandStatus(result,
-                                       Status(ErrorCodes::ProtocolError,
-                                              "Cannot create a user certificate without SSL support."));
+            return appendCommandStatus(
+                result,
+                Status(ErrorCodes::ProtocolError,
+                       "Cannot create a user certificate without SSL support."));
         }
 
         ServiceContext* serviceContext = txn->getClient()->getServiceContext();
@@ -683,100 +685,104 @@ public:
             }
         }
 
-        audit::logCreateApplicationCertificate(Client::getCurrent(),
-                                               args.certificateSigningRequest,
-                                               args.roles);
+        audit::logCreateApplicationCertificate(
+            Client::getCurrent(), args.certificateSigningRequest, args.roles);
         // TODO:
 
         // status = createApplicationCertificate(txn, args);
-	BIO *out = NULL;
-	BIO *x509bio = NULL;
-    BIO *config;
-    BIO *cabio;
-	EVP_PKEY *capkey = NULL;
-    X509 *cax509;
-    X509 *x509gen;
-	X509_EXTENSION *ext;
-    X509_REQ *req = NULL;
-    EVP_PKEY *pktmp = NULL;
-    ASN1_INTEGER *serial = NULL;
-    CONF *conf = NULL;
-    long errorline = -1;
+        BIO* out = NULL;
+        BIO* x509bio = NULL;
+        BIO* config;
+        BIO* cabio;
+        EVP_PKEY* capkey = NULL;
+        X509* cax509;
+        X509* x509gen;
+        X509_EXTENSION* ext;
+        X509_REQ* req = NULL;
+        EVP_PKEY* pktmp = NULL;
+        ASN1_INTEGER* serial = NULL;
+        CONF* conf = NULL;
+        long errorline = -1;
 
-    cabio = BIO_new_file(sslGlobalParams.sslCAFile.c_str(), "r");
-    cax509 = PEM_read_bio_X509(cabio, NULL, 0, NULL);
-    capkey = PEM_read_bio_PrivateKey(cabio, NULL, 0, NULL);
+        cabio = BIO_new_file(sslGlobalParams.sslCAFile.c_str(), "r");
+        cax509 = PEM_read_bio_X509(cabio, NULL, 0, NULL);
+        capkey = PEM_read_bio_PrivateKey(cabio, NULL, 0, NULL);
 
-    // When reading from unsigned char
-    x509bio = BIO_new_mem_buf((void*)args.certificateSigningRequest.c_str(), args.certificateSigningRequest.length());
-    
-    req = PEM_read_bio_X509_REQ(x509bio, NULL, NULL, NULL);
+        // When reading from unsigned char
+        x509bio = BIO_new_mem_buf((void*)args.certificateSigningRequest.c_str(),
+                                  args.certificateSigningRequest.length());
 
-    if (!X509_check_private_key(cax509, capkey)) {
-        uassert(12313, "Key failed!", false);
-        //fail("Invalid private key");
-    } 
+        req = PEM_read_bio_X509_REQ(x509bio, NULL, NULL, NULL);
 
-    x509gen = X509_new();
-    X509_set_version(x509gen, 2);
-    serial = s2i_ASN1_INTEGER(NULL, (char *)"911112");
-    X509_set_serialNumber(x509gen, serial);
-    X509_set_issuer_name(x509gen, X509_get_subject_name(cax509));
-    X509_gmtime_adj(X509_get_notBefore(x509gen), 0);
-    X509_time_adj_ex(X509_get_notAfter(x509gen), 365, 0, NULL);
-    X509_set_subject_name(x509gen, X509_REQ_get_subject_name(req));
+        if (!X509_check_private_key(cax509, capkey)) {
+            uassert(12313, "Key failed!", false);
+            // fail("Invalid private key");
+        }
 
-    pktmp = X509_REQ_get_pubkey(req);
-    X509_set_pubkey(x509gen, pktmp);
-    EVP_PKEY_free(pktmp);
+        x509gen = X509_new();
+        X509_set_version(x509gen, 2);
+        serial = s2i_ASN1_INTEGER(NULL, (char*)"911112");
+        X509_set_serialNumber(x509gen, serial);
+        X509_set_issuer_name(x509gen, X509_get_subject_name(cax509));
+        X509_gmtime_adj(X509_get_notBefore(x509gen), 0);
+        X509_time_adj_ex(X509_get_notAfter(x509gen), 365, 0, NULL);
+        X509_set_subject_name(x509gen, X509_REQ_get_subject_name(req));
 
-
-
-	ext = X509V3_EXT_conf_nid(NULL, NULL, NID_key_usage, (char *)"critical,nonRepudiation,digitalSignature,keyEncipherment");
-    X509_add_ext(x509gen, ext, -1);
-
-	ext = X509V3_EXT_conf_nid(NULL, NULL, NID_ext_key_usage, (char *)"clientAuth");
-    X509_add_ext(x509gen, ext, -1);
-
-	ext = X509V3_EXT_conf_nid(NULL, NULL, NID_netscape_cert_type, (char *)"client");
-    X509_add_ext(x509gen, ext, -1);
+        pktmp = X509_REQ_get_pubkey(req);
+        X509_set_pubkey(x509gen, pktmp);
+        EVP_PKEY_free(pktmp);
 
 
-    config = BIO_new(BIO_s_mem());
-    BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1=ASN1:SET:req_roles\n");
-    BIO_printf(config, "[req_roles]\n");
-    BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:first_role\n");
-    BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.2=SEQUENCE:second_role\n");
+        ext =
+            X509V3_EXT_conf_nid(NULL,
+                                NULL,
+                                NID_key_usage,
+                                (char*)"critical,nonRepudiation,digitalSignature,keyEncipherment");
+        X509_add_ext(x509gen, ext, -1);
 
-    BIO_printf(config, "[first_role]\n");
-    BIO_printf(config, "role=UTF8:readWriteAnyDatabase\n");
-    BIO_printf(config, "db=UTF8:admin\n");
+        ext = X509V3_EXT_conf_nid(NULL, NULL, NID_ext_key_usage, (char*)"clientAuth");
+        X509_add_ext(x509gen, ext, -1);
 
-    BIO_printf(config, "[second_role]\n");
-    BIO_printf(config, "role=UTF8:clusterAdmin\n");
-    BIO_printf(config, "db=UTF8:admin\n");
+        ext = X509V3_EXT_conf_nid(NULL, NULL, NID_netscape_cert_type, (char*)"client");
+        X509_add_ext(x509gen, ext, -1);
 
-    conf = NCONF_new(NULL);
-    conf->meth->load_bio(conf, config, &errorline);
 
-    X509V3_CTX ctx;
-    X509V3_set_ctx(&ctx, cax509, x509gen, req, NULL, 0);
-    X509V3_set_nconf(&ctx, conf);
-    ext = X509V3_EXT_nconf(conf, &ctx, (char *)"1.3.6.1.4.1.34601.2.1.1", (char *)"ASN1:SET:req_roles");
-    X509_add_ext(x509gen, ext, -1);
-    X509_EXTENSION_free(ext); 
+        config = BIO_new(BIO_s_mem());
+        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1=ASN1:SET:req_roles\n");
+        BIO_printf(config, "[req_roles]\n");
+        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:first_role\n");
+        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.2=SEQUENCE:second_role\n");
 
-    X509_sign(x509gen, capkey, EVP_sha256());
+        BIO_printf(config, "[first_role]\n");
+        BIO_printf(config, "role=UTF8:readWriteAnyDatabase\n");
+        BIO_printf(config, "db=UTF8:admin\n");
 
-    char client_cert[2048];
-    ASN1_INTEGER_free(serial);
+        BIO_printf(config, "[second_role]\n");
+        BIO_printf(config, "role=UTF8:clusterAdmin\n");
+        BIO_printf(config, "db=UTF8:admin\n");
 
-    out = BIO_new(BIO_s_mem());
-    //X509_print(NULL, x509gen);
-    PEM_write_bio_X509(out, x509gen);
-    int i = BIO_read(out, &client_cert, sizeof client_cert);
-    client_cert[i] = '\0';
-        
+        conf = NCONF_new(NULL);
+        conf->meth->load_bio(conf, config, &errorline);
+
+        X509V3_CTX ctx;
+        X509V3_set_ctx(&ctx, cax509, x509gen, req, NULL, 0);
+        X509V3_set_nconf(&ctx, conf);
+        ext = X509V3_EXT_nconf(
+            conf, &ctx, (char*)"1.3.6.1.4.1.34601.2.1.1", (char*)"ASN1:SET:req_roles");
+        X509_add_ext(x509gen, ext, -1);
+        X509_EXTENSION_free(ext);
+
+        X509_sign(x509gen, capkey, EVP_sha256());
+
+        char client_cert[2048];
+        ASN1_INTEGER_free(serial);
+
+        out = BIO_new(BIO_s_mem());
+        // X509_print(NULL, x509gen);
+        PEM_write_bio_X509(out, x509gen);
+        int i = BIO_read(out, &client_cert, sizeof client_cert);
+        client_cert[i] = '\0';
+
         status = Status::OK();
         result.append("applicationCertificate", client_cert);
         return appendCommandStatus(result, status);

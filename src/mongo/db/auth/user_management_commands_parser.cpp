@@ -195,9 +195,8 @@ Status parseCreateApplicationCertificateCommand(const BSONObj& cmdObj,
     }
 
     // Parse certificate signing request
-    status = bsonExtractStringField(cmdObj,
-                                    "certificateSigningRequest",
-                                    &parsedArgs->certificateSigningRequest);
+    status = bsonExtractStringField(
+        cmdObj, "certificateSigningRequest", &parsedArgs->certificateSigningRequest);
     if (!status.isOK()) {
         return status;
     }
@@ -208,8 +207,7 @@ Status parseCreateApplicationCertificateCommand(const BSONObj& cmdObj,
     if (!status.isOK()) {
         return status;
     }
-    status =
-        parseRoleNamesFromBSONArray(BSONArray(rolesElement.Obj()), dbname, &parsedArgs->roles);
+    status = parseRoleNamesFromBSONArray(BSONArray(rolesElement.Obj()), dbname, &parsedArgs->roles);
     if (!status.isOK()) {
         return status;
     }

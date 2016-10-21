@@ -163,26 +163,24 @@ var DB;
 
         var request = createCertificateRequest(options);
         if (!request.ok) {
-          throw new Error('Failed to createApplicationCertificate: ' + request.errmsg);
+            throw new Error('Failed to createApplicationCertificate: ' + request.errmsg);
         }
 
-        var external = this._name === "$external"? this : this.getSiblingDB("$external");
+        var external = this._name === "$external" ? this : this.getSiblingDB("$external");
         var res = external.runCommand({
             createApplicationCertificate: 1,
             certificateSigningRequest: request.certificateRequest,
-            roles: roles});
+            roles: roles
+        });
         if (!res.ok) {
-          throw new Error('Failed to createApplicationCertificate: ' + res.errmsg);
+            throw new Error('Failed to createApplicationCertificate: ' + res.errmsg);
         }
 
         if (certFilePath) {
             writeFile(certFilePath, request.privateKey + res.applicationCertificate);
             return {ok: true, certFilePath: certFilePath};
         } else {
-            return {
-              ok: true,
-              cert: request.privateKey + res.applicationCertificate
-            };
+            return {ok: true, cert: request.privateKey + res.applicationCertificate};
         }
     };
     /**
