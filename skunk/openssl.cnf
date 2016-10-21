@@ -139,7 +139,7 @@ role=UTF8:clusterAdmin
 db=UTF8:admin
 
 [third_role]
-role=UTF8:userAdmin
+role=UTF8:userAdminAnyDatabase
 db=UTF8:admin
 
 [ server_cert ]
