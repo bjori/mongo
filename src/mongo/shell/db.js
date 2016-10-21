@@ -155,22 +155,24 @@ var DB;
     /**
      * Create an application certificate
      **/
-    DB.prototype.createApplicationCertificate = function(obj) {
-        if (this._name == "admin")
-            return this.runCommand(obj, extra);
+    DB.prototype.createApplicationCertificate = function(certSignRequestOpts, roles, certFilePath) {
+        var options = certSignRequestOpts || {};
+        if (roles === undefined) {
+            throw Error("Must specify roles.");
+        }
 
-        var request = createCertificateRequest(obj);
+        var request = createCertificateRequest(options);
         if (!request.ok) {
-          throw new Error(request.errmsg);
+          throw new Error('Failed to createApplicationCertificate: ' + request.errmsg);
         }
 
         var external = this._name === "$external"? this : this.getSiblingDB("$external");
         var res = external.runCommand({
             createApplicationCertificate: 1,
             certificateSigningRequest: request.certificateRequest,
-            roles: obj.roles});
+            roles: roles});
         if (!res.ok) {
-          throw new Error(res.errmsg);
+          throw new Error('Failed to createApplicationCertificate: ' + res.errmsg);
         }
 
         return {
