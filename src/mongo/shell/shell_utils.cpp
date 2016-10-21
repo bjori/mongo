@@ -213,6 +213,34 @@ BSONObj interpreterVersion(const BSONObj& a, void* data) {
     return BSON("" << getGlobalScriptEngine()->getInterpreterVersionString());
 }
 
+BSONObj createCertificateRequest(const BSONObj& a, void* data) {
+#ifndef MONGO_CONFIG_SSL
+    return BSON("" << BSON("ok" << false <<
+                           "errmsg" << "Cannot create a certificate signing request without SSL support"));
+#else
+    if (a.nFields() != 1 || a.firstElement().type() != Object) {
+        return BSON("" << BSON("ok" << false <<
+                               "errmsg" << "createCertificateRequest requires a single object argument"));
+    }
+
+    // args can optionally contain some to be determined fields...
+    BSONObj args = a.firstElement().embeddedObject();
+    if (!args.hasField("CN")) {
+        return BSON("" << BSON("ok" << false <<
+                               "errmsg" << "createCertificateRequest requires a Common Name (\"CN\") field"));
+    }
+
+    // TODO:
+    // Generate key pair and certificate signing request
+    std::string certificateRequest = "-----BEGIN CERTIFICATE REQUEST-----";
+    std::string privateKey = "-----BEGIN RSA PRIVATE KEY-----";
+
+    return BSON("" << BSON("ok" << true <<
+                           "certificateRequest" << certificateRequest <<
+                           "privateKey" << privateKey));
+#endif
+}
+
 void installShellUtils(Scope& scope) {
     scope.injectNative("getMemInfo", JSGetMemInfo);
     scope.injectNative("_replMonitorStats", replMonitorStats);
@@ -223,6 +251,7 @@ void installShellUtils(Scope& scope) {
     scope.injectNative("getBuildInfo", getBuildInfo);
     scope.injectNative("isKeyTooLarge", isKeyTooLarge);
     scope.injectNative("validateIndexKey", validateIndexKey);
+    scope.injectNative("createCertificateRequest", createCertificateRequest);
 
 #ifndef MONGO_SAFE_SHELL
     // can't launch programs

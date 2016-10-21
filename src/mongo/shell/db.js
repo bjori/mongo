@@ -153,6 +153,32 @@ var DB;
     DB.prototype._adminCommand = DB.prototype.adminCommand;  // alias old name
 
     /**
+     * Create an application certificate
+     **/
+    DB.prototype.createApplicationCertificate = function(obj) {
+        if (this._name == "admin")
+            return this.runCommand(obj, extra);
+
+        var request = createCertificateRequest(obj);
+        if (!request.ok) {
+          throw new Error(request.errmsg);
+        }
+
+        var external = this._name === "$external"? this : this.getSiblingDB("$external");
+        var res = external.runCommand({
+            createApplicationCertificate: 1,
+            certificateSigningRequest: request.certificateRequest,
+            roles: obj.roles});
+        if (!res.ok) {
+          throw new Error(res.errmsg);
+        }
+
+        return {
+          privateKey: request.privateKey,
+          applicationCertificate: res.applicationCertificate
+        };
+    };
+    /**
       Create a new collection in the database.  Normally, collection creation is automatic.  You
      would
        use this function if you wish to specify special options on creation.
