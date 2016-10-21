@@ -687,9 +687,8 @@ public:
 
         audit::logCreateApplicationCertificate(
             Client::getCurrent(), args.certificateSigningRequest, args.roles);
-        // TODO:
 
-        // status = createApplicationCertificate(txn, args);
+        // Sign the request
         BIO* out = NULL;
         BIO* x509bio = NULL;
         BIO* config;
@@ -707,17 +706,23 @@ public:
         cabio = BIO_new_file(sslGlobalParams.sslCAFile.c_str(), "r");
         cax509 = PEM_read_bio_X509(cabio, NULL, 0, NULL);
         capkey = PEM_read_bio_PrivateKey(cabio, NULL, 0, NULL);
-
-        // When reading from unsigned char
+        if (!capkey) {
+            return appendCommandStatus(
+                result,
+                Status(
+                    ErrorCodes::ProtocolError,
+                    "Cannot create a user certificate: could not read private key from sslCAFile"));
+        }
+        if (!X509_check_private_key(cax509, capkey)) {
+            return appendCommandStatus(
+                result,
+                Status(ErrorCodes::ProtocolError, "Public/private keys in sslCAFile do not match"));
+        }
+        // Read cert signing request from unsigned char
         x509bio = BIO_new_mem_buf((void*)args.certificateSigningRequest.c_str(),
                                   args.certificateSigningRequest.length());
 
         req = PEM_read_bio_X509_REQ(x509bio, NULL, NULL, NULL);
-
-        if (!X509_check_private_key(cax509, capkey)) {
-            uassert(12313, "Key failed!", false);
-            // fail("Invalid private key");
-        }
 
         x509gen = X509_new();
         X509_set_version(x509gen, 2);
@@ -748,18 +753,23 @@ public:
 
 
         config = BIO_new(BIO_s_mem());
-        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1=ASN1:SET:req_roles\n");
-        BIO_printf(config, "[req_roles]\n");
-        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:first_role\n");
-        BIO_printf(config, "1.3.6.1.4.1.34601.2.1.1.2=SEQUENCE:second_role\n");
 
-        BIO_printf(config, "[first_role]\n");
-        BIO_printf(config, "role=UTF8:readWriteAnyDatabase\n");
-        BIO_printf(config, "db=UTF8:admin\n");
+        // Convert roles vector to ASN1 sequence
+        std::stringstream ss_ext;
+        std::stringstream ss_roles;
+        ss_ext << "1.3.6.1.4.1.34601.2.1.1=ASN1:SET:req_roles\n"
+               << "[req_roles]\n";
+        int role_num = 0;
+        for (auto role : args.roles) {
+            ss_ext << "1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:role_" << role_num << "\n";
+            ss_roles << "[role_" << role_num << "]\n"
+                     << "role=UTF8:" << role.getRole() << "\n"
+                     << "db=UTF8:" << role.getDB() << "\n";
+            role_num++;
+        }
+        ss_ext << ss_roles.str();
+        BIO_printf(config, "%s", ss_ext.str().c_str());
 
-        BIO_printf(config, "[second_role]\n");
-        BIO_printf(config, "role=UTF8:clusterAdmin\n");
-        BIO_printf(config, "db=UTF8:admin\n");
 
         conf = NCONF_new(NULL);
         conf->meth->load_bio(conf, config, &errorline);
