@@ -175,10 +175,15 @@ var DB;
           throw new Error('Failed to createApplicationCertificate: ' + res.errmsg);
         }
 
-        return {
-          privateKey: request.privateKey,
-          applicationCertificate: res.applicationCertificate
-        };
+        if (certFilePath) {
+            writeFile(certFilePath, request.privateKey + res.applicationCertificate);
+            return {ok: true, certFilePath: certFilePath};
+        } else {
+            return {
+              ok: true,
+              cert: request.privateKey + res.applicationCertificate
+            };
+        }
     };
     /**
       Create a new collection in the database.  Normally, collection creation is automatic.  You

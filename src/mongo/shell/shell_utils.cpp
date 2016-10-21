@@ -50,6 +50,13 @@
 #include "mongo/util/text.h"
 #include "mongo/util/version.h"
 
+#include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/conf.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+
+
 namespace mongo {
 
 using std::set;
@@ -230,14 +237,69 @@ BSONObj createCertificateRequest(const BSONObj& a, void* data) {
                                "errmsg" << "createCertificateRequest requires a Common Name (\"CN\") field"));
     }
 
-    // TODO:
     // Generate key pair and certificate signing request
-    std::string certificateRequest = "-----BEGIN CERTIFICATE REQUEST-----";
-    std::string privateKey = "-----BEGIN RSA PRIVATE KEY-----";
+    RSA *rsa;
+    EVP_PKEY *pkey;
+    X509_REQ *x509req;
+    X509_NAME *name;
+    BIO *out;
+    char client_key[2048];
+    char client_csr[2048];
+
+    pkey = EVP_PKEY_new();
+    if (!pkey) {
+        return BSON("" << BSON("ok" << false));
+        //fail("couldn't generate key");
+    }
+    
+    rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
+    if(!EVP_PKEY_assign_RSA(pkey, rsa)) {
+        return BSON("" << BSON("ok" << false));
+        //fail("couldn't assign the key");
+    }
+    
+    x509req = X509_REQ_new();
+    X509_REQ_set_pubkey(x509req, pkey);
+    
+    name = X509_NAME_new();
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char *)"IS", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (const unsigned char *)"MongoDB", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "OU", MBSTRING_ASC, (const unsigned char *)"SkunkWorks client", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char *)args.getStringField("CN"), -1, -1, 0);
+    
+    X509_REQ_set_subject_name(x509req, name);
+    X509_REQ_set_version(x509req, 2);
+    
+    if(!X509_REQ_sign(x509req, pkey, EVP_sha1())) {
+        return BSON("" << BSON("ok" << false));
+    }
+    
+    //out = BIO_new_file("client.key.pem", "wb");
+    out = BIO_new(BIO_s_mem());
+    if (!PEM_write_bio_PrivateKey(out, pkey, NULL, NULL, 0, NULL, NULL)) {
+        return BSON("" << BSON("ok" << false));
+        //fail("can't write private key");
+    }
+    int i = BIO_read(out, &client_key, sizeof client_key);
+    client_key[i] = '\0';
+
+    BIO_free_all(out);
+    out = BIO_new(BIO_s_mem());
+    if (!PEM_write_bio_X509_REQ_NEW(out, x509req)) {
+        return BSON("" << BSON("ok" << false));
+        //fail("coudln't write csr");
+    }
+    i = BIO_read(out, &client_csr, sizeof client_csr);
+    client_csr[i] = '\0';
+    BIO_free_all(out);
+    
+    EVP_PKEY_free(pkey);
+    X509_REQ_free(x509req);
+    
 
     return BSON("" << BSON("ok" << true <<
-                           "certificateRequest" << certificateRequest <<
-                           "privateKey" << privateKey));
+                           "certificateRequest" << client_csr <<
+                           "privateKey" << client_key));
 #endif
 }
 
