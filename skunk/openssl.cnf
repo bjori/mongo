@@ -128,6 +128,7 @@ extendedKeyUsage = clientAuth, emailProtection
 [req_roles]
 1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:first_role
 1.3.6.1.4.1.34601.2.1.1.2=SEQUENCE:second_role
+1.3.6.1.4.1.34601.2.1.1.2=SEQUENCE:third_role
 
 [first_role]
 role=UTF8:readWriteAnyDatabase
@@ -135,6 +136,10 @@ db=UTF8:admin
 
 [second_role]
 role=UTF8:clusterAdmin
+db=UTF8:admin
+
+[third_role]
+role=UTF8:userAdmin
 db=UTF8:admin
 
 [ server_cert ]
