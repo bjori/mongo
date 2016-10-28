@@ -757,17 +757,19 @@ public:
         // Convert roles vector to ASN1 sequence
         std::stringstream ss_ext;
         std::stringstream ss_roles;
-        ss_ext << "1.3.6.1.4.1.34601.2.1.1=ASN1:SET:req_roles\n"
+        string magic_key = "1.3.6.1.4.1.34601.2.1.1";
+        ss_ext << magic_key << "=ASN1:SET:req_roles\n"
                << "[req_roles]\n";
-        int role_num = 0;
+        int role_num = 1;
         for (auto role : args.roles) {
-            ss_ext << "1.3.6.1.4.1.34601.2.1.1.1=SEQUENCE:role_" << role_num << "\n";
+            ss_ext << magic_key << role_num << "=SEQUENCE:role_" << role_num << "\n";
             ss_roles << "[role_" << role_num << "]\n"
                      << "role=UTF8:" << role.getRole() << "\n"
                      << "db=UTF8:" << role.getDB() << "\n";
             role_num++;
         }
         ss_ext << ss_roles.str();
+        printf("%s", ss_ext.str().c_str());
         BIO_printf(config, "%s", ss_ext.str().c_str());
 
 
